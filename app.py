@@ -22,7 +22,7 @@ ADMIN_PASSWORD = os.getenv("SONGLIST_PASSWORD")
 # print(ADMIN_PASSWORD)
 
 # JWT settings
-JWT_SECRET = "your-secret-key"  # In production, this should be a secure secret key
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_WEEKS = 99999
 
