@@ -35,6 +35,13 @@
             color: #2c3e50;
         }
 
+        .auth-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
         .search-bar {
             display: flex;
             gap: 10px;
@@ -327,9 +334,18 @@
             color: white;
         }
 
+        .btn-login {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-logout {
+            background-color: #e74c3c;
+            color: white;
+        }
+
         .btn-add-song {
             background-color: #808080;
-            /* Gray */
             color: white;
             margin-right: 10px;
             margin-bottom: 20px;
@@ -337,7 +353,6 @@
 
         .btn-add-todo {
             background-color: #2ecc71;
-            /* Green */
             color: white;
             margin-bottom: 20px;
         }
@@ -362,7 +377,10 @@
 
         .todo-green {
             color: #2ecc71;
-            /* Green for "Todo" in modal title */
+        }
+
+        .hidden {
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -385,6 +403,10 @@
             .search-input {
                 width: 100%;
             }
+
+            .auth-buttons {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -393,8 +415,15 @@
     <div class="container">
         <h1>Song Manager</h1>
 
-        <button id="add-new-song" class="btn btn-add-song">Add New Song</button>
-        <button id="add-new-todo" class="btn btn-add-todo">Add Todo Song</button>
+        <div class="auth-buttons">
+            <button id="login-btn" class="btn btn-login">Login</button>
+            <button id="logout-btn" class="btn btn-logout hidden">Logout</button>
+        </div>
+
+        <div id="write-operations" class="hidden">
+            <button id="add-new-song" class="btn btn-add-song">Add New Song</button>
+            <button id="add-new-todo" class="btn btn-add-todo">Add Todo Song</button>
+        </div>
 
         <div class="search-bar">
             <select class="search-select" id="search-type">
@@ -418,6 +447,30 @@
         <div id="todo-tab" class="tab-content">
             <div id="todo-loading" class="loading">Loading todo songs...</div>
             <ul id="todo-list" class="song-list"></ul>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Login</h3>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="Username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="Password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-login" class="btn btn-cancel">Cancel</button>
+                <button id="submit-login" class="btn btn-login">Login</button>
+            </div>
         </div>
     </div>
 
@@ -574,6 +627,7 @@
     <script>
         const API_BASE_URL = 'http://127.0.0.1:8000';
         const API_ENDPOINTS = {
+            LOGIN: `${API_BASE_URL}/login`,
             SONGS: `${API_BASE_URL}/songs/`,
             TODO_SONGS: `${API_BASE_URL}/todo/`,
             UPDATE_SONG: `${API_BASE_URL}/songs/update/`,
@@ -587,6 +641,7 @@
         let todoSongsData = [];
         let currentSong = null;
         let currentTab = 'songs';
+        let token = localStorage.getItem('token') || null;
 
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
@@ -596,12 +651,16 @@
         const deleteModal = document.getElementById('delete-modal');
         const addSongModal = document.getElementById('add-song-modal');
         const addTodoModal = document.getElementById('add-todo-modal');
+        const loginModal = document.getElementById('login-modal');
         const songsLoading = document.getElementById('songs-loading');
         const todoLoading = document.getElementById('todo-loading');
         const searchTypeSelect = document.getElementById('search-type');
         const searchInput = document.getElementById('search-input');
         const addNewSongBtn = document.getElementById('add-new-song');
         const addNewTodoBtn = document.getElementById('add-new-todo');
+        const writeOperationsDiv = document.getElementById('write-operations');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
 
         const songNameInput = document.getElementById('song-name');
         const singersContainer = document.getElementById('singers-container');
@@ -642,10 +701,28 @@
         const saveAddTodoBtn = document.getElementById('save-add-todo');
         const cancelAddTodoBtn = document.getElementById('cancel-add-todo');
 
+        const loginUsernameInput = document.getElementById('login-username');
+        const loginPasswordInput = document.getElementById('login-password');
+        const submitLoginBtn = document.getElementById('submit-login');
+        const cancelLoginBtn = document.getElementById('cancel-login');
+
         const modalCloseButtons = document.querySelectorAll('.modal-close');
         const cancelDeleteBtn = document.getElementById('cancel-delete');
         const confirmDeleteBtn = document.getElementById('confirm-delete');
         const deleteSongName = document.getElementById('delete-song-name');
+
+        function updateAuthUI() {
+            if (token) {
+                loginBtn.classList.add('hidden');
+                logoutBtn.classList.remove('hidden');
+                writeOperationsDiv.classList.remove('hidden');
+            } else {
+                loginBtn.classList.remove('hidden');
+                logoutBtn.classList.add('hidden');
+                writeOperationsDiv.classList.add('hidden');
+            }
+            renderCurrentTab();
+        }
 
         async function fetchSongs() {
             try {
@@ -705,6 +782,13 @@
                 li.className = 'song-item';
                 li.dataset.uuid = song.uuid;
                 li.dataset.type = type;
+                const actionsHtml = token ? `
+                    <div class="song-actions">
+                        <button class="btn btn-edit">Edit</button>
+                        <button class="btn btn-move">${type === 'songs' ? 'Move to Todo' : 'Move to Songs'}</button>
+                        <button class="btn btn-delete">Delete</button>
+                    </div>
+                ` : '';
                 li.innerHTML = `
                     <div class="song-info">
                         <div class="song-name">${escapeHtml(song.name)}</div>
@@ -733,19 +817,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="song-actions">
-                        <button class="btn btn-edit">Edit</button>
-                        <button class="btn btn-move">${type === 'songs' ? 'Move to Todo' : 'Move to Songs'}</button>
-                        <button class="btn btn-delete">Delete</button>
-                    </div>
+                    ${actionsHtml}
                 `;
                 container.appendChild(li);
-                const editBtn = li.querySelector('.btn-edit');
-                const moveBtn = li.querySelector('.btn-move');
-                const deleteBtn = li.querySelector('.btn-delete');
-                editBtn.addEventListener('click', () => openEditModal(song, type));
-                moveBtn.addEventListener('click', () => moveSong(song.uuid, type));
-                deleteBtn.addEventListener('click', () => openDeleteModal(song, type));
+                if (token) {
+                    const editBtn = li.querySelector('.btn-edit');
+                    const moveBtn = li.querySelector('.btn-move');
+                    const deleteBtn = li.querySelector('.btn-delete');
+                    editBtn.addEventListener('click', () => openEditModal(song, type));
+                    moveBtn.addEventListener('click', () => moveSong(song.uuid, type));
+                    deleteBtn.addEventListener('click', () => openDeleteModal(song, type));
+                }
             });
         }
 
@@ -783,11 +865,18 @@
             deleteModal.style.display = 'flex';
         }
 
+        function openLoginModal() {
+            loginUsernameInput.value = '';
+            loginPasswordInput.value = '';
+            loginModal.style.display = 'flex';
+        }
+
         function closeModals() {
             editModal.style.display = 'none';
             deleteModal.style.display = 'none';
             addSongModal.style.display = 'none';
             addTodoModal.style.display = 'none';
+            loginModal.style.display = 'none';
             currentSong = null;
         }
 
@@ -811,7 +900,42 @@
             removeBtn.addEventListener('click', () => itemDiv.remove());
         }
 
+        async function login() {
+            const username = loginUsernameInput.value.trim();
+            const password = loginPasswordInput.value.trim();
+            if (!username || !password) {
+                alert('Please enter both username and password.');
+                return;
+            }
+            try {
+                const response = await fetch(API_ENDPOINTS.LOGIN, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (!response.ok) throw new Error('Login failed');
+                const data = await response.json();
+                token = data.access_token;
+                localStorage.setItem('token', token);
+                closeModals();
+                updateAuthUI();
+            } catch (error) {
+                console.error('Error logging in:', error);
+                alert('Login failed. Please check your credentials.');
+            }
+        }
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            updateAuthUI();
+        }
+
         async function createSong(isTodo = false) {
+            if (!token) {
+                alert('You must be logged in to create a song.');
+                return;
+            }
             const songData = {
                 name: isTodo ? addTodoNameInput.value.trim() : addSongNameInput.value.trim(),
                 singers: isTodo ?
@@ -834,20 +958,31 @@
                 const endpoint = isTodo ? API_ENDPOINTS.NEW_TODO : API_ENDPOINTS.NEW_SONG;
                 const response = await fetch(endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(songData)
                 });
-                if (!response.ok) throw new Error('Failed to create song');
+                if (!response.ok) {
+                    if (response.status === 401) throw new Error('Unauthorized');
+                    throw new Error('Failed to create song');
+                }
                 await reloadCurrentTab();
                 closeModals();
             } catch (error) {
                 console.error('Error creating song:', error);
-                alert('Failed to create song. Please try again.');
+                if (error.message === 'Unauthorized') {
+                    alert('Session expired. Please log in again.');
+                    logout();
+                } else {
+                    alert('Failed to create song. Please try again.');
+                }
             }
         }
 
         async function updateSong() {
-            if (!currentSong) return;
+            if (!token || !currentSong) return;
             const songUpdate = {
                 uuid: currentSong.uuid,
                 name: songNameInput.value,
@@ -859,19 +994,31 @@
                 const endpoint = currentSong.type === 'songs' ? API_ENDPOINTS.UPDATE_SONG : API_ENDPOINTS.UPDATE_TODO;
                 const response = await fetch(endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(songUpdate)
                 });
-                if (!response.ok) throw new Error('Failed to update song');
+                if (!response.ok) {
+                    if (response.status === 401) throw new Error('Unauthorized');
+                    throw new Error('Failed to update song');
+                }
                 await reloadCurrentTab();
                 closeModals();
             } catch (error) {
                 console.error('Error updating song:', error);
-                alert('Failed to update song. Please try again.');
+                if (error.message === 'Unauthorized') {
+                    alert('Session expired. Please log in again.');
+                    logout();
+                } else {
+                    alert('Failed to update song. Please try again.');
+                }
             }
         }
 
         async function moveSong(uuid, sourceType) {
+            if (!token) return;
             try {
                 const moveRequest = {
                     moveto: sourceType === 'songs' ? 'todo-songs' : 'songs-todo',
@@ -879,19 +1026,30 @@
                 };
                 const response = await fetch(API_ENDPOINTS.MOVE, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(moveRequest)
                 });
-                if (!response.ok) throw new Error('Failed to move song');
+                if (!response.ok) {
+                    if (response.status === 401) throw new Error('Unauthorized');
+                    throw new Error('Failed to move song');
+                }
                 await Promise.all([fetchSongs(), fetchTodoSongs()]);
             } catch (error) {
                 console.error('Error moving song:', error);
-                alert('Failed to move song. Please try again.');
+                if (error.message === 'Unauthorized') {
+                    alert('Session expired. Please log in again.');
+                    logout();
+                } else {
+                    alert('Failed to move song. Please try again.');
+                }
             }
         }
 
         async function deleteSong() {
-            if (!currentSong) return;
+            if (!token || !currentSong) return;
             try {
                 const moveRequest = {
                     moveto: currentSong.type === 'songs' ? 'todo-songs' : 'songs-todo',
@@ -899,15 +1057,26 @@
                 };
                 const response = await fetch(API_ENDPOINTS.MOVE, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify(moveRequest)
                 });
-                if (!response.ok) throw new Error('Failed to delete song');
+                if (!response.ok) {
+                    if (response.status === 401) throw new Error('Unauthorized');
+                    throw new Error('Failed to delete song');
+                }
                 await reloadCurrentTab();
                 closeModals();
             } catch (error) {
                 console.error('Error deleting song:', error);
-                alert('Failed to delete song. Please try again.');
+                if (error.message === 'Unauthorized') {
+                    alert('Session expired. Please log in again.');
+                    logout();
+                } else {
+                    alert('Failed to delete song. Please try again.');
+                }
             }
         }
 
@@ -922,6 +1091,14 @@
                 await fetchSongs();
             } else {
                 await fetchTodoSongs();
+            }
+        }
+
+        function renderCurrentTab() {
+            if (currentTab === 'songs') {
+                renderSongs(songsData, songsList, 'songs');
+            } else {
+                renderSongs(todoSongsData, todoList, 'todo');
             }
         }
 
@@ -945,22 +1122,11 @@
             });
         });
 
-        searchInput.addEventListener('input', () => {
-            if (currentTab === 'songs') {
-                renderSongs(songsData, songsList, 'songs');
-            } else {
-                renderSongs(todoSongsData, todoList, 'todo');
-            }
-        });
+        searchInput.addEventListener('input', renderCurrentTab);
+        searchTypeSelect.addEventListener('change', renderCurrentTab);
 
-        searchTypeSelect.addEventListener('change', () => {
-            if (currentTab === 'songs') {
-                renderSongs(songsData, songsList, 'songs');
-            } else {
-                renderSongs(todoSongsData, todoList, 'todo');
-            }
-        });
-
+        loginBtn.addEventListener('click', openLoginModal);
+        logoutBtn.addEventListener('click', logout);
         addNewSongBtn.addEventListener('click', openAddSongModal);
         addNewTodoBtn.addEventListener('click', openAddTodoModal);
 
@@ -969,11 +1135,13 @@
         cancelDeleteBtn.addEventListener('click', closeModals);
         cancelAddSongBtn.addEventListener('click', closeModals);
         cancelAddTodoBtn.addEventListener('click', closeModals);
+        cancelLoginBtn.addEventListener('click', closeModals);
 
         saveEditBtn.addEventListener('click', updateSong);
         confirmDeleteBtn.addEventListener('click', deleteSong);
         saveAddSongBtn.addEventListener('click', () => createSong(false));
         saveAddTodoBtn.addEventListener('click', () => createSong(true));
+        submitLoginBtn.addEventListener('click', login);
 
         addSingerBtn.addEventListener('click', () => {
             const value = newSingerInput.value.trim();
@@ -1083,12 +1251,21 @@
             if (e.key === 'Enter') addTodoAddLinkBtn.click();
         });
 
-        [editModal, deleteModal, addSongModal, addTodoModal].forEach(modal => {
+        loginUsernameInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') submitLoginBtn.click();
+        });
+
+        loginPasswordInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') submitLoginBtn.click();
+        });
+
+        [editModal, deleteModal, addSongModal, addTodoModal, loginModal].forEach(modal => {
             modal.addEventListener('click', e => {
                 if (e.target === modal) closeModals();
             });
         });
 
+        updateAuthUI();
         fetchSongs();
     </script>
 </body>

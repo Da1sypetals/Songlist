@@ -1,18 +1,30 @@
 import os
 import uuid
 from typing import List, Optional, Literal
-from fastapi import FastAPI, HTTPException, Depends
+from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, field_validator
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+import jwt
 
 # Load environment variables
 load_dotenv()
 
-# Get database connection string
+# Get environment variables
 db_connection_string = os.getenv("DATABASE_URL")
+ADMIN_USERNAME = os.getenv("SONGLIST_USERNAME")
+ADMIN_PASSWORD = os.getenv("SONGLIST_PASSWORD")
+# print(ADMIN_USERNAME)
+# print(ADMIN_PASSWORD)
+
+# JWT settings
+JWT_SECRET = "your-secret-key"  # In production, this should be a secure secret key
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_WEEKS = 99999
 
 app = FastAPI(title="Song Manager API")
 
@@ -25,6 +37,53 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Auth Models
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+# Security
+security = HTTPBearer()
+
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(weeks=JWT_EXPIRATION_WEEKS)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+
+
+# Auth Routes
+@app.post("/login", response_model=Token)
+async def login(login_request: LoginRequest):
+    if (
+        login_request.username != ADMIN_USERNAME
+        or login_request.password != ADMIN_PASSWORD
+    ):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token(data={"sub": ADMIN_USERNAME})
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # Models
@@ -134,7 +193,9 @@ async def get_todo_songs(db: psycopg2.extensions.connection = Depends(get_db)):
 
 @app.post("/songs/new/", response_model=Song)
 async def create_song(
-    song: SongCreate, db: psycopg2.extensions.connection = Depends(get_db)
+    song: SongCreate,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
 ):
     song_uuid = str(uuid.uuid4())
     song_data = song.model_dump()
@@ -150,7 +211,9 @@ async def create_song(
 
 @app.post("/todo/new/", response_model=Song)
 async def create_todo_song(
-    song: SongCreate, db: psycopg2.extensions.connection = Depends(get_db)
+    song: SongCreate,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
 ):
     song_uuid = str(uuid.uuid4())
     song_data = song.model_dump()
@@ -167,7 +230,9 @@ async def create_todo_song(
 
 @app.post("/songs/update/", response_model=Song)
 async def update_song(
-    song_update: SongUpdate, db: psycopg2.extensions.connection = Depends(get_db)
+    song_update: SongUpdate,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
 ):
     # First, get the existing song
     cursor = db.cursor()
@@ -211,7 +276,9 @@ async def update_song(
 
 @app.post("/todo/update/", response_model=Song)
 async def update_todo_song(
-    song_update: SongUpdate, db: psycopg2.extensions.connection = Depends(get_db)
+    song_update: SongUpdate,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
 ):
     # Get the existing song from todo_songs
     cursor = db.cursor()
@@ -244,7 +311,9 @@ async def update_todo_song(
 
 @app.post("/move/")
 async def move_songs(
-    move_request: MoveSongs, db: psycopg2.extensions.connection = Depends(get_db)
+    move_request: MoveSongs,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
 ):
     not_found = []
 
