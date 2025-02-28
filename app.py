@@ -10,6 +10,7 @@ from psycopg2.extras import RealDictCursor, Json
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
+from fastapi.responses import FileResponse
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +28,11 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_WEEKS = 99999
 
 app = FastAPI(title="Song Manager API")
+
+
+@app.get("/")
+async def read_root():
+    return FileResponse("index.html")
 
 
 # Add CORS middleware here
