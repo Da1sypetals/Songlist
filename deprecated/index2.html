@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Manager</title>
+    <style>
+        /* CSS Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+
+        .tab:hover:not(.active) {
+            background-color: #ddd;
+        }
+
+        /* Song List Styles */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .song-list {
+            list-style: none;
+        }
+
+        .song-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .song-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .song-info {
+            flex: 1;
+        }
+
+        .song-name {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .song-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .song-singers,
+        .song-tags,
+        .song-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .meta-title {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .singer,
+        .tag,
+        .link {
+            background-color: #e3f2fd;
+            border-radius: 15px;
+            padding: 2px 10px;
+            font-size: 12px;
+        }
+
+        .tag {
+            background-color: #e8f5e9;
+        }
+
+        .link {
+            background-color: #fff3e0;
+        }
+
+        .song-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .btn-edit {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-move {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .modal {
+            background-color: white;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .modal-close {
+            font-size: 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #777;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .tags-container,
+        .singers-container,
+        .links-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .tag-item,
+        .singer-item,
+        .link-item {
+            display: flex;
+            align-items: center;
+            background-color: #f1f1f1;
+            border-radius: 15px;
+            padding: 5px 10px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .tag-text,
+        .singer-text,
+        .link-text {
+            margin-right: 5px;
+        }
+
+        .tag-remove,
+        .singer-remove,
+        .link-remove {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-cancel {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-save {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .add-item-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .add-btn {
+            background-color: #3498db;
+            color: white;
+        }
+
+        /* Loading indicator */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #777;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .song-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .song-actions {
+                margin-top: 15px;
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Song Manager</h1>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="songs">Songs</div>
+            <div class="tab" data-tab="todo">Todo Songs</div>
+        </div>
+
+        <div id="songs-tab" class="tab-content active">
+            <div id="songs-loading" class="loading">Loading songs...</div>
+            <ul id="songs-list" class="song-list"></ul>
+        </div>
+
+        <div id="todo-tab" class="tab-content">
+            <div id="todo-loading" class="loading">Loading todo songs...</div>
+            <ul id="todo-list" class="song-list"></ul>
+        </div>
+    </div>
+
+    <!-- Edit Song Modal -->
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Song</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="song-name">Song Name</label>
+                    <input type="text" id="song-name" class="form-control" placeholder="Song name">
+                </div>
+
+                <div class="form-group">
+                    <label>Singers</label>
+                    <div id="singers-container" class="singers-container"></div>
+                    <div class="add-item-form">
+                        <input type="text" id="new-singer" class="form-control" placeholder="Add singer">
+                        <button id="add-singer" class="btn add-btn">Add</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tags</label>
+                    <div id="tags-container" class="tags-container"></div>
+                    <div class="add-item-form">
+                        <input type="text" id="new-tag" class="form-control" placeholder="Add tag">
+                        <button id="add-tag" class="btn add-btn">Add</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Links</label>
+                    <div id="links-container" class="links-container"></div>
+                    <div class="add-item-form">
+                        <input type="text" id="new-link" class="form-control" placeholder="Add link">
+                        <button id="add-link" class="btn add-btn">Add</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-edit" class="btn btn-cancel">Cancel</button>
+                <button id="save-edit" class="btn btn-save">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Delete Song</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this song? This action cannot be undone.</p>
+                <p id="delete-song-name" style="font-weight: bold; margin-top: 10px;"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-delete" class="btn btn-cancel">Cancel</button>
+                <button id="confirm-delete" class="btn btn-delete">Delete Song</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Endpoints
+        const API_BASE_URL = 'http://127.0.0.1:8000'; // Set to your API base URL
+        const API_ENDPOINTS = {
+            SONGS: `${API_BASE_URL}/songs/`,
+            TODO_SONGS: `${API_BASE_URL}/todo/`,
+            UPDATE_SONG: `${API_BASE_URL}/songs/update/`,
+            UPDATE_TODO: `${API_BASE_URL}/todo/update/`,
+            MOVE: `${API_BASE_URL}/move/`
+        };
+
+        // State management
+        let songsData = [];
+        let todoSongsData = [];
+        let currentSong = null;
+        let currentTab = 'songs';
+
+        // DOM Elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const songsList = document.getElementById('songs-list');
+        const todoList = document.getElementById('todo-list');
+        const editModal = document.getElementById('edit-modal');
+        const deleteModal = document.getElementById('delete-modal');
+        const songsLoading = document.getElementById('songs-loading');
+        const todoLoading = document.getElementById('todo-loading');
+
+        // Modal elements
+        const songNameInput = document.getElementById('song-name');
+        const singersContainer = document.getElementById('singers-container');
+        const tagsContainer = document.getElementById('tags-container');
+        const linksContainer = document.getElementById('links-container');
+        const newSingerInput = document.getElementById('new-singer');
+        const newTagInput = document.getElementById('new-tag');
+        const newLinkInput = document.getElementById('new-link');
+        const addSingerBtn = document.getElementById('add-singer');
+        const addTagBtn = document.getElementById('add-tag');
+        const addLinkBtn = document.getElementById('add-link');
+        const saveEditBtn = document.getElementById('save-edit');
+        const cancelEditBtn = document.getElementById('cancel-edit');
+        const modalCloseButtons = document.querySelectorAll('.modal-close');
+        const cancelDeleteBtn = document.getElementById('cancel-delete');
+        const confirmDeleteBtn = document.getElementById('confirm-delete');
+        const deleteSongName = document.getElementById('delete-song-name');
+
+        // Fetch data
+        async function fetchSongs() {
+            try {
+                songsLoading.style.display = 'block';
+                songsList.innerHTML = '';
+
+                const response = await fetch(API_ENDPOINTS.SONGS);
+                if (!response.ok) throw new Error('Failed to fetch songs');
+
+                songsData = await response.json();
+                renderSongs(songsData, songsList);
+
+                songsLoading.style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching songs:', error);
+                songsLoading.innerHTML = 'Error loading songs. Please try again.';
+            }
+        }
+
+        async function fetchTodoSongs() {
+            try {
+                todoLoading.style.display = 'block';
+                todoList.innerHTML = '';
+
+                const response = await fetch(API_ENDPOINTS.TODO_SONGS);
+                if (!response.ok) throw new Error('Failed to fetch todo songs');
+
+                todoSongsData = await response.json();
+                renderSongs(todoSongsData, todoList, 'todo');
+
+                todoLoading.style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching todo songs:', error);
+                todoLoading.innerHTML = 'Error loading todo songs. Please try again.';
+            }
+        }
+
+        // Render functions
+        function renderSongs(songs, container, type = 'songs') {
+            container.innerHTML = '';
+
+            if (songs.length === 0) {
+                container.innerHTML = '<p class="no-songs">No songs found.</p>';
+                return;
+            }
+
+            songs.forEach(song => {
+                const li = document.createElement('li');
+                li.className = 'song-item';
+                li.dataset.uuid = song.uuid;
+                li.dataset.type = type;
+
+                li.innerHTML = `
+                    <div class="song-info">
+                        <div class="song-name">${escapeHtml(song.name)}</div>
+                        <div class="song-meta">
+                            <div>
+                                <span class="meta-title">Singers:</span>
+                                <div class="song-singers">
+                                    ${song.singers.map(singer => `<span class="singer">${escapeHtml(singer)}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="song-meta">
+                            <div>
+                                <span class="meta-title">Tags:</span>
+                                <div class="song-tags">
+                                    ${song.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="song-meta">
+                            <div>
+                                <span class="meta-title">Links:</span>
+                                <div class="song-links">
+                                    ${song.links.map(link => `<span class="link">${escapeHtml(link)}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="song-actions">
+                        <button class="btn btn-edit">Edit</button>
+                        <button class="btn btn-move">${type === 'songs' ? 'Move to Todo' : 'Move to Songs'}</button>
+                        <button class="btn btn-delete">Delete</button>
+                    </div>
+                `;
+
+                container.appendChild(li);
+
+                // Add event listeners
+                const editBtn = li.querySelector('.btn-edit');
+                const moveBtn = li.querySelector('.btn-move');
+                const deleteBtn = li.querySelector('.btn-delete');
+
+                editBtn.addEventListener('click', () => openEditModal(song, type));
+                moveBtn.addEventListener('click', () => moveSong(song.uuid, type));
+                deleteBtn.addEventListener('click', () => openDeleteModal(song, type));
+            });
+        }
+
+        // Modal functions
+        function openEditModal(song, type) {
+            currentSong = { ...song, type };
+
+            // Fill in form fields
+            songNameInput.value = song.name;
+
+            // Clear containers
+            singersContainer.innerHTML = '';
+            tagsContainer.innerHTML = '';
+            linksContainer.innerHTML = '';
+
+            // Add singers
+            song.singers.forEach(singer => {
+                addItemToContainer('singer', singer);
+            });
+
+            // Add tags
+            song.tags.forEach(tag => {
+                addItemToContainer('tag', tag);
+            });
+
+            // Add links
+            song.links.forEach(link => {
+                addItemToContainer('link', link);
+            });
+
+            // Show modal
+            editModal.style.display = 'flex';
+        }
+
+        function openDeleteModal(song, type) {
+            currentSong = { ...song, type };
+            deleteSongName.textContent = song.name;
+            deleteModal.style.display = 'flex';
+        }
+
+        function closeModals() {
+            editModal.style.display = 'none';
+            deleteModal.style.display = 'none';
+            currentSong = null;
+        }
+
+        function addItemToContainer(type, value) {
+            const container = document.getElementById(`${type}s-container`);
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `${type}-item`;
+            itemDiv.innerHTML = `
+                <span class="${type}-text">${escapeHtml(value)}</span>
+                <button class="${type}-remove">&times;</button>
+            `;
+
+            container.appendChild(itemDiv);
+
+            const removeBtn = itemDiv.querySelector(`.${type}-remove`);
+            removeBtn.addEventListener('click', () => {
+                itemDiv.remove();
+            });
+        }
+
+        // API operations
+        async function updateSong() {
+            if (!currentSong) return;
+
+            const songUpdate = {
+                uuid: currentSong.uuid,
+                name: songNameInput.value,
+                singers: Array.from(singersContainer.querySelectorAll('.singer-text')).map(span => span.textContent),
+                tags: Array.from(tagsContainer.querySelectorAll('.tag-text')).map(span => span.textContent),
+                links: Array.from(linksContainer.querySelectorAll('.link-text')).map(span => span.textContent)
+            };
+
+            try {
+                const endpoint = currentSong.type === 'songs'
+                    ? API_ENDPOINTS.UPDATE_SONG
+                    : API_ENDPOINTS.UPDATE_TODO;
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(songUpdate)
+                });
+
+                if (!response.ok) throw new Error('Failed to update song');
+
+                // Refresh data
+                await reloadCurrentTab();
+                closeModals();
+            } catch (error) {
+                console.error('Error updating song:', error);
+                alert('Failed to update song. Please try again.');
+            }
+        }
+
+        async function moveSong(uuid, sourceType) {
+            try {
+                const moveRequest = {
+                    moveto: sourceType === 'songs' ? 'todo-songs' : 'songs-todo',
+                    uuids: [uuid]
+                };
+
+                const response = await fetch(API_ENDPOINTS.MOVE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(moveRequest)
+                });
+
+                if (!response.ok) throw new Error('Failed to move song');
+
+                // Refresh both tabs
+                await Promise.all([fetchSongs(), fetchTodoSongs()]);
+            } catch (error) {
+                console.error('Error moving song:', error);
+                alert('Failed to move song. Please try again.');
+            }
+        }
+
+        async function deleteSong() {
+            if (!currentSong) return;
+
+            try {
+                // For this implementation, we'll move the song to a non-existent location
+                // to simulate deletion since there's no delete endpoint
+
+                const moveRequest = {
+                    moveto: currentSong.type === 'songs' ? 'todo-songs' : 'songs-todo',
+                    uuids: [currentSong.uuid]
+                };
+
+                const response = await fetch(API_ENDPOINTS.MOVE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(moveRequest)
+                });
+
+                if (!response.ok) throw new Error('Failed to delete song');
+
+                // Refresh data
+                await reloadCurrentTab();
+                closeModals();
+            } catch (error) {
+                console.error('Error deleting song:', error);
+                alert('Failed to delete song. Please try again.');
+            }
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function reloadCurrentTab() {
+            if (currentTab === 'songs') {
+                await fetchSongs();
+            } else {
+                await fetchTodoSongs();
+            }
+        }
+
+        // Event listeners
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update tab content
+                tabContents.forEach(content => content.classList.remove('active'));
+                const tabName = tab.dataset.tab;
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+
+                // Update current tab
+                currentTab = tabName;
+
+                // Load data if needed
+                if (tabName === 'songs' && songsData.length === 0) {
+                    fetchSongs();
+                } else if (tabName === 'todo' && todoSongsData.length === 0) {
+                    fetchTodoSongs();
+                }
+            });
+        });
+
+        // Modal event listeners
+        modalCloseButtons.forEach(btn => {
+            btn.addEventListener('click', closeModals);
+        });
+
+        cancelEditBtn.addEventListener('click', closeModals);
+        cancelDeleteBtn.addEventListener('click', closeModals);
+
+        // Save changes
+        saveEditBtn.addEventListener('click', updateSong);
+
+        // Delete song
+        confirmDeleteBtn.addEventListener('click', deleteSong);
+
+        // Add new items
+        addSingerBtn.addEventListener('click', () => {
+            const value = newSingerInput.value.trim();
+            if (value) {
+                addItemToContainer('singer', value);
+                newSingerInput.value = '';
+            }
+        });
+
+        addTagBtn.addEventListener('click', () => {
+            const value = newTagInput.value.trim();
+            if (value) {
+                addItemToContainer('tag', value);
+                newTagInput.value = '';
+            }
+        });
+
+        addLinkBtn.addEventListener('click', () => {
+            const value = newLinkInput.value.trim();
+            if (value) {
+                addItemToContainer('link', value);
+                newLinkInput.value = '';
+            }
+        });
+
+        // Allow pressing Enter to add items
+        newSingerInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') {
+                addSingerBtn.click();
+            }
+        });
+
+        newTagInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') {
+                addTagBtn.click();
+            }
+        });
+
+        newLinkInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') {
+                addLinkBtn.click();
+            }
+        });
+
+        // Close modal when clicking outside
+        [editModal, deleteModal].forEach(modal => {
+            modal.addEventListener('click', e => {
+                if (e.target === modal) {
+                    closeModals();
+                }
+            });
+        });
+
+        // Initial data load
+        fetchSongs();
+    </script>
+</body>
+
+</html>
