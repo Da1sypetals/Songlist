@@ -626,12 +626,15 @@
 
     <script>
         const API_BASE_URL = 'https://songlist-wgwe.vercel.app';
+        // const API_BASE_URL = 'http://127.0.0.1:8000';
         const API_ENDPOINTS = {
             LOGIN: `${API_BASE_URL}/login`,
             SONGS: `${API_BASE_URL}/songs/`,
             TODO_SONGS: `${API_BASE_URL}/todo/`,
             UPDATE_SONG: `${API_BASE_URL}/songs/update/`,
             UPDATE_TODO: `${API_BASE_URL}/todo/update/`,
+            DELETE_SONG: `${API_BASE_URL}/songs/delete/`,
+            DELETE_TODO: `${API_BASE_URL}/todo/delete/`,
             MOVE: `${API_BASE_URL}/move/`,
             NEW_SONG: `${API_BASE_URL}/songs/new/`,
             NEW_TODO: `${API_BASE_URL}/todo/new/`
@@ -1051,21 +1054,25 @@
         async function deleteSong() {
             if (!token || !currentSong) return;
             try {
-                const moveRequest = {
-                    moveto: currentSong.type === 'songs' ? 'todo-songs' : 'songs-todo',
+                const endpoint = currentSong.type === 'songs' ? API_ENDPOINTS.DELETE_SONG : API_ENDPOINTS.DELETE_TODO;
+                const deleteRequest = {
                     uuids: [currentSong.uuid]
                 };
-                const response = await fetch(API_ENDPOINTS.MOVE, {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify(moveRequest)
+                    body: JSON.stringify(deleteRequest)
                 });
                 if (!response.ok) {
                     if (response.status === 401) throw new Error('Unauthorized');
                     throw new Error('Failed to delete song');
+                }
+                const result = await response.json();
+                if (result.not_found && result.not_found.length > 0) {
+                    throw new Error('Song not found');
                 }
                 await reloadCurrentTab();
                 closeModals();

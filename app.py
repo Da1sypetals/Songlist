@@ -356,6 +356,57 @@ async def move_songs(
         return {"status": "ok"}
 
 
+# New delete endpoints
+class DeleteRequest(BaseModel):
+    uuids: List[str]
+
+
+@app.post("/songs/delete/")
+async def delete_songs(
+    delete_request: DeleteRequest,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
+):
+    cursor = db.cursor()
+    not_found = []
+
+    for song_uuid in delete_request.uuids:
+        cursor.execute("SELECT 1 FROM songs WHERE uuid = %s", (song_uuid,))
+        if not cursor.fetchone():
+            not_found.append(song_uuid)
+        else:
+            cursor.execute("DELETE FROM songs WHERE uuid = %s", (song_uuid,))
+
+    cursor.close()
+
+    if not_found:
+        return {"not_found": not_found}
+    return {"status": "ok"}
+
+
+@app.post("/todo/delete/")
+async def delete_todo_songs(
+    delete_request: DeleteRequest,
+    db: psycopg2.extensions.connection = Depends(get_db),
+    _: dict = Depends(verify_token),
+):
+    cursor = db.cursor()
+    not_found = []
+
+    for song_uuid in delete_request.uuids:
+        cursor.execute("SELECT 1 FROM todo_songs WHERE uuid = %s", (song_uuid,))
+        if not cursor.fetchone():
+            not_found.append(song_uuid)
+        else:
+            cursor.execute("DELETE FROM todo_songs WHERE uuid = %s", (song_uuid,))
+
+    cursor.close()
+
+    if not_found:
+        return {"not_found": not_found}
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     import uvicorn
 
